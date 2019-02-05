@@ -1,6 +1,6 @@
 package org.springframework.kdb.domain.jdbc;
 
-import org.springframework.kdb.domain.*;
+import org.springframework.kdb.domain.c;
 
 import java.io.IOException;
 import java.sql.*;

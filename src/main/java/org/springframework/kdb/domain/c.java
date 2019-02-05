@@ -15,6 +15,13 @@ package org.springframework.kdb.domain;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.kdb.auth.IAuthenticate;
+import org.springframework.kdb.domain.tabular.Dict;
+import org.springframework.kdb.domain.tabular.Flip;
+import org.springframework.kdb.domain.temporal.Minute;
+import org.springframework.kdb.domain.temporal.Month;
+import org.springframework.kdb.domain.temporal.Second;
+import org.springframework.kdb.domain.temporal.Timespan;
 import org.springframework.kdb.exceptions.KException;
 import org.springframework.stereotype.Service;
 
@@ -28,8 +35,6 @@ import java.net.Socket;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.text.DecimalFormat;
-import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.UUID;
 
@@ -321,7 +326,7 @@ public class c {
      * @throws UnsupportedEncodingException If the named charset is not supported
      */
     public static int n(Object x) throws UnsupportedEncodingException {
-        return x instanceof Dict ? n(((Dict) x).x) : x instanceof Flip ? n(((Flip) x).y[0]) : x instanceof char[] ? new String((char[]) x).getBytes(encoding).length : Array.getLength(x);
+        return x instanceof Dict ? n(((Dict) x).getKey()) : x instanceof Flip ? n(((Flip) x).getValue()[0]) : x instanceof char[] ? new String((char[]) x).getBytes(encoding).length : Array.getLength(x);
     }
     
     /**
@@ -368,7 +373,7 @@ public class c {
         Array.set(x, i, null == y ? NULL[t(x)] : y);
     }
     
-    static int find(String[] x, String y) {
+    public static int find(String[] x, String y) {
         int i = 0;
         for (; i < x.length && !x[i].equals(y); )
             ++i;
@@ -390,14 +395,14 @@ public class c {
         if (X instanceof Flip)
             return (Flip) X;
         Dict d = (Dict) X;
-        Flip a = (Flip) d.x, b = (Flip) d.y;
-        int m = n(a.x), n = n(b.x);
+        Flip a = (Flip) d.getKey(), b = (Flip) d.getValue();
+        int m = n(a.getKey()), n = n(b.getKey());
         String[] x = new String[m + n];
-        System.arraycopy(a.x, 0, x, 0, m);
-        System.arraycopy(b.x, 0, x, m, n);
+        System.arraycopy(a.getKey(), 0, x, 0, m);
+        System.arraycopy(b.getKey(), 0, x, m, n);
         Object[] y = new Object[m + n];
-        System.arraycopy(a.y, 0, y, 0, m);
-        System.arraycopy(b.y, 0, y, m, n);
+        System.arraycopy(a.getValue(), 0, y, 0, m);
+        System.arraycopy(b.getValue(), 0, y, m, n);
         return new Flip(new Dict(x, y));
     }
     
@@ -462,14 +467,6 @@ public class c {
         t = t();
         if (u > 0)
             O(t - u);
-    }
-    
-    static String i2(int i) {
-        return new DecimalFormat("00").format(i);
-    }
-    
-    static String i9(int i) {
-        return new DecimalFormat("000000000").format(i);
     }
     
     /**
@@ -970,9 +967,9 @@ public class c {
     public int nx(Object x) throws UnsupportedEncodingException {
         int i = 0, n, t = t(x), j;
         if (t == 99)
-            return 1 + nx(((Dict) x).x) + nx(((Dict) x).y);
+            return 1 + nx(((Dict) x).getKey()) + nx(((Dict) x).getValue());
         if (t == 98)
-            return 3 + nx(((Flip) x).x) + nx(((Flip) x).y);
+            return 3 + nx(((Flip) x).getKey()) + nx(((Flip) x).getValue());
         if (t < 0)
             return t == -11 ? 2 + ns((String) x) : 1 + nt[-t];
         j = 6;
@@ -1047,16 +1044,16 @@ public class c {
             }
         if (t == 99) {
             Dict r = (Dict) x;
-            w(r.x);
-            w(r.y);
+            w(r.getKey());
+            w(r.getValue());
             return;
         }
         B[J++] = 0;
         if (t == 98) {
             Flip r = (Flip) x;
             B[J++] = 99;
-            w(r.x);
-            w(r.y);
+            w(r.getKey());
+            w(r.getValue());
             return;
         }
         w(n = n(x));
@@ -1373,221 +1370,4 @@ public class c {
         return k(a);
     }
     
-    /**
-     * {@code IAuthenticate} describes interface to authenticate incoming connection based on authentication string
-     */
-    public interface IAuthenticate {
-        /**
-         * Checks authentication string provided to allow/reject connection.
-         *
-         * @param s String containing username:password for authentication
-         * @return true if credentials accepted.
-         * @see <a href="https://code.kx.com/q/ref/dotz/#zpw-validate-user">.z.pw</a>
-         */
-        public boolean authenticate(String s);
-    }
-    
-    /**
-     * {@code Month} represents kdb+ month type.
-     */
-    public static class Month implements Comparable<Month> {
-        /**
-         * Number of months since Jan 2000
-         */
-        public int i;
-        
-        public Month(int x) {
-            i = x;
-        }
-        
-        @Override
-        public String toString() {
-            int m = i + 24000, y = m / 12;
-            return i == ni ? "" : i2(y / 100) + i2(y % 100) + "-" + i2(1 + m % 12);
-        }
-        
-        @Override
-        public boolean equals(final Object o) {
-            return (o instanceof Month) ? ((Month) o).i == i : false;
-        }
-        
-        @Override
-        public int hashCode() {
-            return i;
-        }
-        
-        public int compareTo(Month m) {
-            return i - m.i;
-        }
-    }
-    
-    /**
-     * {@code Minute} represents kdb+ minute type.
-     */
-    public static class Minute implements Comparable<Minute> {
-        /**
-         * Number of minutes passed.
-         */
-        public int i;
-        
-        public Minute(int x) {
-            i = x;
-        }
-        
-        @Override
-        public String toString() {
-            return i == ni ? "" : i2(i / 60) + ":" + i2(i % 60);
-        }
-        
-        @Override
-        public boolean equals(final Object o) {
-            return (o instanceof Minute) ? ((Minute) o).i == i : false;
-        }
-        
-        @Override
-        public int hashCode() {
-            return i;
-        }
-        
-        public int compareTo(Minute m) {
-            return i - m.i;
-        }
-    }
-    
-    /**
-     * {@code Second} represents kdb+ second type.
-     */
-    public static class Second implements Comparable<Second> {
-        /**
-         * Number of seconds passed.
-         */
-        public int i;
-        
-        public Second(int x) {
-            i = x;
-        }
-        
-        @Override
-        public String toString() {
-            return i == ni ? "" : new Minute(i / 60).toString() + ':' + i2(i % 60);
-        }
-        
-        @Override
-        public boolean equals(final Object o) {
-            return (o instanceof Second) ? ((Second) o).i == i : false;
-        }
-        
-        @Override
-        public int hashCode() {
-            return i;
-        }
-        
-        public int compareTo(Second s) {
-            return i - s.i;
-        }
-    }
-    
-    /**
-     * {@code Timespan} represents kdb+ timestamp type.
-     */
-    public static class Timespan implements Comparable<Timespan> {
-        /**
-         * Number of nanoseconds passed.
-         */
-        public long j;
-        
-        public Timespan(long x) {
-            j = x;
-        }
-        
-        /**
-         * Constructs {@code Timespan} using time since midnight and default timezone.
-         */
-        public Timespan() {
-            this(TimeZone.getDefault());
-        }
-        
-        /**
-         * Constructs {@code Timespan} using time since midnight and default timezone.
-         *
-         * @param tz {@code TimeZone} to use for deriving midnight.
-         */
-        public Timespan(TimeZone tz) {
-            Calendar c = Calendar.getInstance(tz);
-            long now = c.getTimeInMillis();
-            c.set(Calendar.HOUR_OF_DAY, 0);
-            c.set(Calendar.MINUTE, 0);
-            c.set(Calendar.SECOND, 0);
-            c.set(Calendar.MILLISECOND, 0);
-            j = (now - c.getTimeInMillis()) * 1000000L;
-        }
-        
-        @Override
-        public String toString() {
-            if (j == nj)
-                return "";
-            String s = j < 0 ? "-" : "";
-            long jj = j < 0 ? -j : j;
-            int d = ((int) (jj / 86400000000000L));
-            if (d != 0)
-                s += d + "D";
-            return s + i2((int) ((jj % 86400000000000L) / 3600000000000L)) + ":" + i2((int) ((jj % 3600000000000L) / 60000000000L)) + ":" + i2((int) ((jj % 60000000000L) / 1000000000L)) + "." + i9((int) (jj % 1000000000L));
-        }
-        
-        public int compareTo(Timespan t) {
-            return j > t.j ? 1 : j < t.j ? -1 : 0;
-        }
-        
-        @Override
-        public boolean equals(final Object o) {
-            return (o instanceof Timespan) ? ((Timespan) o).j == j : false;
-        }
-        
-        @Override
-        public int hashCode() {
-            return (int) (j ^ (j >>> 32));
-        }
-    }
-    
-    /**
-     * {@code Dict} represents the kdb+ dictionary type.
-     */
-    public static class Dict {
-        /**
-         * Dict keys
-         */
-        public Object x;
-        /**
-         * Dict values
-         */
-        public Object y;
-        
-        public Dict(Object X, Object Y) {
-            x = X;
-            y = Y;
-        }
-    }
-    
-    /**
-     * {@code Flip} represents a kdb+ table.
-     */
-    public static class Flip {
-        /**
-         * Array of column names.
-         */
-        public String[] x;
-        /**
-         * Array of arrays of the column values.
-         */
-        public Object[] y;
-        
-        public Flip(Dict X) {
-            x = (String[]) X.x;
-            y = (Object[]) X.y;
-        }
-        
-        public Object at(String s) {
-            return y[find(x, s)];
-        }
-    }
 }
